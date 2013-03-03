@@ -46,19 +46,6 @@ def launchjob(job):
         logger.error('\tJob *' + job_name + '* failed')
     return i
 
-def rewind(infile):
-    qfile = open(infile, 'w')
-    bakfile = open(infile + '.bak', 'r')
-    # Remove all the '*' in infile
-    for i in bakfile:
-        if i.startswith('*') or i.startswith('#'):
-            qfile.write(i[1:])
-        else:
-            qfile.write(i)
-    qfile.close()
-    bakfile.close()
-    return 0
-
 def get_next_job(infile):
     qfile = open(infile, 'r')
     bakfile = open(infile + '.bak','w')
@@ -78,6 +65,8 @@ def get_next_job(infile):
     return (job_name, job_cmd)
 
 def main(infile):
+    rfile = open(pjs.running_file, 'w')
+    rfile.close()
     jobs=1
     while (jobs == 1 and not os.path.exists(pjs.pause_file)):
         newjob = get_next_job(infile)
@@ -85,6 +74,7 @@ def main(infile):
         if newjob[0] != '' or newjob[1] != '':
             jobs = 1
             if newjob[1] != '':
+                logger.info('\tStarting job *' + newjob[0] + '*')
                 echojob = launchjob(newjob)
             # if os.path.exists(newjob[1]):
             #     echojob = launchjob(newjob)
@@ -97,6 +87,8 @@ def main(infile):
             # print 'No jobs found at ' + str(time.asctime())
             jobs = 0
         pjs.remake_list(infile, True)
+
+    os.remove(pjs.running_file)
     return 0
 
 
@@ -104,9 +96,6 @@ def main(infile):
 # ==============================================================================
 
 if __name__ == "__main__":
-    rfile = open(pjs.running_file, 'w')
-    rfile.close()
-
     # ==========================================================================
     # Setup logging system
 
@@ -120,7 +109,6 @@ if __name__ == "__main__":
     # ==========================================================================
 
     main(pjs.job_queue_file)
-    os.remove(pjs.running_file)
     # rewind(pjs.job_queue_file)
 
 

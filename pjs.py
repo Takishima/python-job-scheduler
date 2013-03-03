@@ -17,6 +17,10 @@ def print_usage(options):
     print '''usage: pjs.py [ %s ]''' % options2str(options)
 
 def is_in_path(program):
+    import shlex
+    # Only look at first shell token for program name
+    program = shlex.split(program)[0]
+
     '''Looks for program in the PATH'''
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -117,6 +121,7 @@ def add_job():
         print '''    ERROR: too many arguments'''
     else:
         job_name, job_cmd = sys.argv[2:4]
+        print '''Job *%s* added''' % job_name
         if not is_in_path(job_cmd):
             job_cmd = os.path.abspath(os.path.join(os.getcwd(), job_cmd))
         qfile = open(pjs.job_queue_file, 'a')
@@ -131,20 +136,27 @@ def delete_job():
     else:
         delete_job_helper(pjs.job_queue_file, sys.argv[2], delete_all=False)
 
-def delete_many_job():
-    if len(sys.argv) < 3:
-        print '''    ERROR: missing *job_name*'''
-    elif len(sys.argv) != 3:
-        print '''    ERROR: too many arguments'''
-    else:
-        delete_job_helper(pjs.job_queue_file, sys.argv[2], delete_all=True)
-
 def delete_all_jobs():
     if len(sys.argv) > 2:
         print '''    ERROR: too many arguments'''
     else:
         qfile = open(pjs.job_queue_file, 'w')
         qfile.close()
+        print '''Cancelled all pending jobs'''
+
+
+def reset_jobs():
+    qfile = open(pjs.job_queue_file, 'w')
+    bakfile = open(pjs.job_queue_file + '.bak', 'r')
+    # Remove all the '*' in infile
+    for i in bakfile:
+        if i.startswith('*') or i.startswith('#'):
+            qfile.write(i[1:])
+        else:
+            qfile.write(i)
+    qfile.close()
+    bakfile.close()
+    print '''All running/completed jobs marked as pending...'''
 
 def edit_job_queue():
     os.execl(os.getenv('EDITOR'), os.getenv('EDITOR'), pjs.job_queue_file)
@@ -185,9 +197,8 @@ Possible actions:
     edit          Manually edit job queue file (using $EDITOR)
     delete        Cancel first matching job
                   Requires 1 argument: 'job_title'
-    delete_many   Cancel all matching jobs
-                  Requires 1 argument: 'job_title'
     delete_all    Cancel all jobs
+    reset         Set status of completed jobs as pending
 '''
 
 options = { 
@@ -200,7 +211,7 @@ options = {
     'delete' : delete_job,
     'log' : show_log,
     'clear' : clear_log,
-    'delete_many' : delete_many_job,
+    'reset' : reset_jobs,
     'delete_all' : delete_all_jobs,
     'help' : display_help
     }
@@ -209,6 +220,7 @@ options = {
 # Helper functions
 
 def delete_job_helper(infile, job_name, delete_all=False):
+    print '''Deleting jobs.:'''
     qfile = open(infile, 'r')
     bakfile = open(infile + '.bak','w')
     lines = ''
@@ -224,7 +236,10 @@ def delete_job_helper(infile, job_name, delete_all=False):
                 lines += line
             else:
                 first = False
+                print '''\t%s\t%s''' % (tmp_n, tmp_c)
 
+    if found == False:
+        print '''\tNo job matching *%s* have been found''' % job_name
     bakfile.write(lines)
     qfile.close()
     bakfile.close()
